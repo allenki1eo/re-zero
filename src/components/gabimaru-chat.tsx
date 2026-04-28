@@ -65,8 +65,8 @@ function isToolPart(part: MessagePart) {
 }
 
 function formatChatError(message: string) {
-  if (/invalid authentication|api key|unauthorized|moonshot/i.test(message)) {
-    return "Missing or invalid Kimi credentials. Set a valid MOONSHOT_API_KEY from platform.kimi.ai in your Vercel environment variables (or .env.local for local dev), then redeploy. Keys from platform.kimi.com will not work on the platform.kimi.ai API.";
+  if (/invalid authentication|api key|unauthorized|huggingface|hf_token|token/i.test(message)) {
+    return "Missing or invalid Hugging Face credentials. Set a valid HF_TOKEN in your Vercel environment variables (or .env.local for local dev), enable Inference Providers for your account, then redeploy.";
   }
 
   return message;
@@ -233,10 +233,10 @@ export function GabimaruChat() {
           <div className="rounded-xl border bg-background/70 p-3">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Zap className="size-4 text-red-600" />
-              Kimi K2.6
+              Hugging Face
             </div>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Agent route: <span className="font-mono">/api/chat</span>
+              Model: <span className="font-mono">Qwen Coder</span>
             </p>
           </div>
         </div>

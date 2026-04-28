@@ -4,8 +4,8 @@ import { z } from "zod";
 import { createLocalPlan } from "@/lib/sample-plan";
 import { runSimulation } from "@/lib/simulation";
 
-const moonshotBaseUrl = process.env.MOONSHOT_BASE_URL ?? "https://api.moonshot.ai/v1";
-const defaultKimiModel = "kimi-k2.6";
+const huggingFaceBaseUrl = process.env.HF_BASE_URL ?? "https://router.huggingface.co/v1";
+const defaultHuggingFaceModel = "Qwen/Qwen3-Coder-30B-A3B-Instruct:fastest";
 
 const hardwareTools = {
   createHardwareBuildPlan: tool({
@@ -42,19 +42,24 @@ const hardwareTools = {
 let gabimaruAgent: ToolLoopAgent<never, typeof hardwareTools> | null = null;
 let cachedKey = "";
 
-function getMoonshotKey() {
-  return (process.env.MOONSHOT_API_KEY ?? process.env.KIMI_API_KEY ?? "").trim();
+function getHuggingFaceToken() {
+  return (
+    process.env.HF_TOKEN ??
+    process.env.HUGGING_FACE_HUB_TOKEN ??
+    process.env.HUGGINGFACE_API_KEY ??
+    ""
+  ).trim();
 }
 
 export function getGabimaruAgent() {
-  const apiKey = getMoonshotKey();
-  const modelId = process.env.KIMI_MODEL ?? defaultKimiModel;
-  const cacheKey = `${apiKey}:${modelId}`;
+  const apiKey = getHuggingFaceToken();
+  const modelId = process.env.HF_MODEL ?? defaultHuggingFaceModel;
+  const cacheKey = `${apiKey}:${huggingFaceBaseUrl}:${modelId}`;
 
-  const placeholders = ["your_actual_moonshot_key", "your_platform_kimi_ai_api_key"];
+  const placeholders = ["your_huggingface_token"];
   if (!apiKey || placeholders.includes(apiKey)) {
     throw new Error(
-      "MOONSHOT_API_KEY is not configured. Create an API key on platform.kimi.ai, then add it to your Vercel environment variables (or .env.local for local dev) and redeploy."
+      "HF_TOKEN is not configured. Create a Hugging Face access token, enable Inference Providers, then add it to your Vercel environment variables (or .env.local for local dev) and redeploy."
     );
   }
 
@@ -62,20 +67,16 @@ export function getGabimaruAgent() {
     return gabimaruAgent;
   }
 
-  const moonshot = createOpenAICompatible({
-    name: "moonshot",
-    baseURL: moonshotBaseUrl,
+  const huggingFace = createOpenAICompatible({
+    name: "huggingface",
+    baseURL: huggingFaceBaseUrl,
     apiKey,
-    includeUsage: true,
-    transformRequestBody: (body) => ({
-      ...body,
-      thinking: { type: process.env.KIMI_THINKING ?? "disabled" }
-    })
+    includeUsage: true
   });
 
   gabimaruAgent = new ToolLoopAgent({
     id: "gabimaru",
-    model: moonshot(modelId),
+    model: huggingFace(modelId),
     tools: hardwareTools,
     stopWhen: stepCountIs(6),
     temperature: 0.25,
@@ -88,5 +89,5 @@ export function getGabimaruAgent() {
 }
 
 export function getGabimaruModelLabel() {
-  return process.env.KIMI_MODEL ?? defaultKimiModel;
+  return process.env.HF_MODEL ?? defaultHuggingFaceModel;
 }

@@ -23,7 +23,7 @@ export function getGabimaruChatSdkBot() {
   });
 
   chatSdkBot.onSubscribedMessage(async (thread, message) => {
-    await thread.post(`Received: ${message.text}\n\nFor the web app, Gabimaru's Kimi-powered tool route lives at /api/chat.`);
+    await thread.post(`Received: ${message.text}\n\nFor the web app, Gabimaru's Hugging Face-powered tool route lives at /api/chat.`);
   });
 
   return chatSdkBot;
