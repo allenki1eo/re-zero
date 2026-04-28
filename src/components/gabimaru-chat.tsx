@@ -66,7 +66,7 @@ function isToolPart(part: MessagePart) {
 
 function formatChatError(message: string) {
   if (/invalid authentication|api key|unauthorized|moonshot/i.test(message)) {
-    return "Missing or invalid Kimi credentials. Add a valid platform.kimi.ai MOONSHOT_API_KEY to .env.local, then restart the dev server. Keys from platform.kimi.com will not work on the platform.kimi.ai API.";
+    return "Missing or invalid Kimi credentials. Set a valid MOONSHOT_API_KEY from platform.kimi.ai in your Vercel environment variables (or .env.local for local dev), then redeploy. Keys from platform.kimi.com will not work on the platform.kimi.ai API.";
   }
 
   return message;

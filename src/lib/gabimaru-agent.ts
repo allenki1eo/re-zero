@@ -51,9 +51,10 @@ export function getGabimaruAgent() {
   const modelId = process.env.KIMI_MODEL ?? defaultKimiModel;
   const cacheKey = `${apiKey}:${modelId}`;
 
-  if (!apiKey || apiKey === "your_actual_moonshot_key") {
+  const placeholders = ["your_actual_moonshot_key", "your_platform_kimi_ai_api_key"];
+  if (!apiKey || placeholders.includes(apiKey)) {
     throw new Error(
-      "MOONSHOT_API_KEY is required. Create an API key on platform.kimi.ai, add it to .env.local, then restart the dev server."
+      "MOONSHOT_API_KEY is not configured. Create an API key on platform.kimi.ai, then add it to your Vercel environment variables (or .env.local for local dev) and redeploy."
     );
   }
 
