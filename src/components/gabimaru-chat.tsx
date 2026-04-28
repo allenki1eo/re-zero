@@ -65,8 +65,12 @@ function isToolPart(part: MessagePart) {
 }
 
 function formatChatError(message: string) {
-  if (/invalid authentication|api key|unauthorized|huggingface|hf_token|token/i.test(message)) {
-    return "Missing or invalid Hugging Face credentials. Set a valid HF_TOKEN in your Vercel environment variables (or .env.local for local dev), enable Inference Providers for your account, then redeploy.";
+  if (/payment required|402|credits|billing/i.test(message)) {
+    return "The hosted model provider needs billing or available credits. Use the default free local mode, or configure Groq with GABIMARU_AI_MODE=groq and a valid GROQ_API_KEY.";
+  }
+
+  if (/invalid authentication|api key|unauthorized|groq|token/i.test(message)) {
+    return "Missing or invalid Groq credentials. Set a valid GROQ_API_KEY in your Vercel environment variables (or .env.local for local dev), then redeploy.";
   }
 
   return message;
@@ -233,10 +237,10 @@ export function GabimaruChat() {
           <div className="rounded-xl border bg-background/70 p-3">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Zap className="size-4 text-red-600" />
-              Hugging Face
+              Free mode
             </div>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Model: <span className="font-mono">Qwen Coder</span>
+              Local planner now. Groq tool-calling optional.
             </p>
           </div>
         </div>

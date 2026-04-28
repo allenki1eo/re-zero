@@ -4,8 +4,8 @@ import { z } from "zod";
 import { createLocalPlan } from "@/lib/sample-plan";
 import { runSimulation } from "@/lib/simulation";
 
-const huggingFaceBaseUrl = process.env.HF_BASE_URL ?? "https://router.huggingface.co/v1";
-const defaultHuggingFaceModel = "Qwen/Qwen3-Coder-30B-A3B-Instruct:fastest";
+const groqBaseUrl = process.env.GROQ_BASE_URL ?? "https://api.groq.com/openai/v1";
+const defaultGroqModel = "openai/gpt-oss-20b";
 
 const hardwareTools = {
   createHardwareBuildPlan: tool({
@@ -42,24 +42,24 @@ const hardwareTools = {
 let gabimaruAgent: ToolLoopAgent<never, typeof hardwareTools> | null = null;
 let cachedKey = "";
 
-function getHuggingFaceToken() {
-  return (
-    process.env.HF_TOKEN ??
-    process.env.HUGGING_FACE_HUB_TOKEN ??
-    process.env.HUGGINGFACE_API_KEY ??
-    ""
-  ).trim();
+function getGroqApiKey() {
+  return (process.env.GROQ_API_KEY ?? "").trim();
+}
+
+export function getGabimaruMode() {
+  const mode = process.env.GABIMARU_AI_MODE?.trim().toLowerCase();
+  return mode === "groq" ? "groq" : "local";
 }
 
 export function getGabimaruAgent() {
-  const apiKey = getHuggingFaceToken();
-  const modelId = process.env.HF_MODEL ?? defaultHuggingFaceModel;
-  const cacheKey = `${apiKey}:${huggingFaceBaseUrl}:${modelId}`;
+  const apiKey = getGroqApiKey();
+  const modelId = process.env.GROQ_MODEL ?? defaultGroqModel;
+  const cacheKey = `${apiKey}:${groqBaseUrl}:${modelId}`;
 
-  const placeholders = ["your_huggingface_token"];
+  const placeholders = ["your_groq_api_key"];
   if (!apiKey || placeholders.includes(apiKey)) {
     throw new Error(
-      "HF_TOKEN is not configured. Create a Hugging Face access token, enable Inference Providers, then add it to your Vercel environment variables (or .env.local for local dev) and redeploy."
+      "GROQ_API_KEY is not configured. Create a Groq API key, add it to your Vercel environment variables (or .env.local for local dev), then redeploy."
     );
   }
 
@@ -67,16 +67,16 @@ export function getGabimaruAgent() {
     return gabimaruAgent;
   }
 
-  const huggingFace = createOpenAICompatible({
-    name: "huggingface",
-    baseURL: huggingFaceBaseUrl,
+  const groq = createOpenAICompatible({
+    name: "groq",
+    baseURL: groqBaseUrl,
     apiKey,
     includeUsage: true
   });
 
   gabimaruAgent = new ToolLoopAgent({
     id: "gabimaru",
-    model: huggingFace(modelId),
+    model: groq(modelId),
     tools: hardwareTools,
     stopWhen: stepCountIs(6),
     temperature: 0.25,
@@ -89,5 +89,5 @@ export function getGabimaruAgent() {
 }
 
 export function getGabimaruModelLabel() {
-  return process.env.HF_MODEL ?? defaultHuggingFaceModel;
+  return process.env.GROQ_MODEL ?? defaultGroqModel;
 }
