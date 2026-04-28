@@ -64,6 +64,14 @@ function isToolPart(part: MessagePart) {
   return part.type.startsWith("tool-") || part.type === "dynamic-tool";
 }
 
+function formatChatError(message: string) {
+  if (/invalid authentication|api key|unauthorized|moonshot/i.test(message)) {
+    return "Missing or invalid Kimi credentials. Add a valid platform.kimi.ai MOONSHOT_API_KEY to .env.local, then restart the dev server. Keys from platform.kimi.com will not work on the platform.kimi.ai API.";
+  }
+
+  return message;
+}
+
 function toolName(type: string) {
   return type
     .replace(/^tool-/, "")
@@ -338,7 +346,7 @@ export function GabimaruChat() {
                     <CircleAlert className="mt-0.5 size-4 shrink-0" />
                     <div>
                       <p className="font-medium">Gabimaru could not answer yet.</p>
-                      <p className="mt-1 text-destructive/80">{error.message}</p>
+                      <p className="mt-1 text-destructive/80">{formatChatError(error.message)}</p>
                     </div>
                   </div>
                 ) : null}

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createLocalPlan } from "@/lib/sample-plan";
 import { runSimulation } from "@/lib/simulation";
 
-const moonshotBaseUrl = "https://api.moonshot.ai/v1";
+const moonshotBaseUrl = process.env.MOONSHOT_BASE_URL ?? "https://api.moonshot.ai/v1";
 const defaultKimiModel = "kimi-k2.6";
 
 const hardwareTools = {
@@ -43,7 +43,7 @@ let gabimaruAgent: ToolLoopAgent<never, typeof hardwareTools> | null = null;
 let cachedKey = "";
 
 function getMoonshotKey() {
-  return process.env.MOONSHOT_API_KEY ?? process.env.KIMI_API_KEY ?? "";
+  return (process.env.MOONSHOT_API_KEY ?? process.env.KIMI_API_KEY ?? "").trim();
 }
 
 export function getGabimaruAgent() {
@@ -51,8 +51,10 @@ export function getGabimaruAgent() {
   const modelId = process.env.KIMI_MODEL ?? defaultKimiModel;
   const cacheKey = `${apiKey}:${modelId}`;
 
-  if (!apiKey) {
-    throw new Error("MOONSHOT_API_KEY is required for Gabimaru's Kimi API calls.");
+  if (!apiKey || apiKey === "your_actual_moonshot_key") {
+    throw new Error(
+      "MOONSHOT_API_KEY is required. Create an API key on platform.kimi.ai, add it to .env.local, then restart the dev server."
+    );
   }
 
   if (gabimaruAgent && cachedKey === cacheKey) {
@@ -63,7 +65,11 @@ export function getGabimaruAgent() {
     name: "moonshot",
     baseURL: moonshotBaseUrl,
     apiKey,
-    includeUsage: true
+    includeUsage: true,
+    transformRequestBody: (body) => ({
+      ...body,
+      thinking: { type: process.env.KIMI_THINKING ?? "disabled" }
+    })
   });
 
   gabimaruAgent = new ToolLoopAgent({

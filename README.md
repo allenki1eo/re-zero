@@ -22,9 +22,26 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+## Kimi setup
+
+Gabimaru uses Kimi K2.6 through Moonshot's OpenAI-compatible Chat Completions API.
+
+Create a `.env.local` file for local development:
+
+```bash
+MOONSHOT_API_KEY=your_platform_kimi_ai_api_key
+MOONSHOT_BASE_URL=https://api.moonshot.ai/v1
+KIMI_MODEL=kimi-k2.6
+KIMI_THINKING=disabled
+```
+
+Use an API key created on `platform.kimi.ai`. Keys from `platform.kimi.com` are separate and will fail authentication on the `.ai` API platform.
+
+Restart `npm run dev` after changing environment variables.
+
 ## Deploy to Vercel
 
 1. Import this repository into Vercel.
 2. Add `MOONSHOT_API_KEY` in Project Settings -> Environment Variables.
-3. Optionally set `KIMI_MODEL` to another Moonshot-compatible model.
+3. Optionally set `MOONSHOT_BASE_URL`, `KIMI_MODEL`, and `KIMI_THINKING`.
 4. Deploy.
