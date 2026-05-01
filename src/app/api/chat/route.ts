@@ -1,6 +1,6 @@
-import { createAgentUIStreamResponse, createUIMessageStream, createUIMessageStreamResponse } from "ai";
+import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import { NextResponse } from "next/server";
-import { getGabimaruAgent, getGabimaruMode } from "@/lib/gabimaru-agent";
+import { getGabimaruMode, streamGabimaruAnswer } from "@/lib/gabimaru-agent";
 import { createLocalPlan } from "@/lib/sample-plan";
 import { runSimulation } from "@/lib/simulation";
 
@@ -154,10 +154,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    return createAgentUIStreamResponse({
-      agent: getGabimaruAgent(),
-      uiMessages: messages
-    });
+    const result = streamGabimaruAnswer(messages);
+    return result.toUIMessageStreamResponse();
   } catch (error) {
     const message = error instanceof Error ? error.message : "Gabimaru could not start.";
     return NextResponse.json({ error: message }, { status: 500 });

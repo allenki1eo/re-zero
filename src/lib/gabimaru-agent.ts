@@ -1,46 +1,42 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { ToolLoopAgent, stepCountIs, tool } from "ai";
-import { z } from "zod";
+import { streamText } from "ai";
 import { createLocalPlan } from "@/lib/sample-plan";
 import { runSimulation } from "@/lib/simulation";
 
 const openRouterBaseUrl = process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1";
 const defaultOpenRouterModel = "qwen/qwen3-coder:free";
 
-const hardwareTools = {
-  createHardwareBuildPlan: tool({
-    description:
-      "Create a complete electronics project plan with bill of materials, wiring, a circuit diagram layout, firmware, safety checks, and bench tests.",
-    inputSchema: z.object({
-      projectIdea: z.string().min(3).describe("The hardware project the user wants to build."),
-      board: z.string().default("Arduino Uno").describe("Preferred board, such as Arduino Uno, ESP32, Raspberry Pi, or Pico."),
-      experience: z.enum(["beginner", "intermediate", "advanced"]).default("beginner")
-    }),
-    execute: async ({ projectIdea, board, experience }) => {
-      const plan = createLocalPlan({ prompt: projectIdea, board, experience });
-      return {
-        plan,
-        simulation: runSimulation(plan)
-      };
-    }
-  }),
-  runFirmwareSimulation: tool({
-    description:
-      "Run a lightweight static bench simulation against the generated firmware and wiring assumptions.",
-    inputSchema: z.object({
-      projectIdea: z.string().min(3),
-      board: z.string().default("Arduino Uno"),
-      experience: z.enum(["beginner", "intermediate", "advanced"]).default("beginner")
-    }),
-    execute: async ({ projectIdea, board, experience }) => {
-      const plan = createLocalPlan({ prompt: projectIdea, board, experience });
-      return runSimulation(plan);
-    }
-  })
+type UnknownMessage = {
+  role?: string;
+  content?: unknown;
+  parts?: Array<{ type?: string; text?: string }>;
 };
 
-let gabimaruAgent: ToolLoopAgent<never, typeof hardwareTools> | null = null;
-let cachedKey = "";
+function getLastUserPrompt(messages: unknown[]): string {
+  const lastUserMessage = [...messages]
+    .reverse()
+    .find((m): m is UnknownMessage => typeof m === "object" && m !== null && (m as UnknownMessage).role === "user");
+
+  if (!lastUserMessage) return "Build a sensor controlled LED project";
+
+  if (typeof lastUserMessage.content === "string") return lastUserMessage.content;
+
+  const text = lastUserMessage.parts
+    ?.filter((p) => p.type === "text" && typeof p.text === "string")
+    .map((p) => p.text)
+    .join("\n")
+    .trim();
+
+  return text || "Build a sensor controlled LED project";
+}
+
+function inferBoard(prompt: string) {
+  const p = prompt.toLowerCase();
+  if (p.includes("raspberry")) return "Raspberry Pi";
+  if (p.includes("esp32")) return "ESP32";
+  if (p.includes("pico")) return "Raspberry Pi Pico";
+  return "Arduino Uno";
+}
 
 function getOpenRouterApiKey() {
   return (process.env.OPENROUTER_API_KEY ?? "").trim();
@@ -51,20 +47,19 @@ export function getGabimaruMode() {
   return mode === "openrouter" ? "openrouter" : "local";
 }
 
-export function getGabimaruAgent() {
+export function getGabimaruModelLabel() {
+  return process.env.OPENROUTER_MODEL ?? defaultOpenRouterModel;
+}
+
+export function streamGabimaruAnswer(messages: unknown[]) {
   const apiKey = getOpenRouterApiKey();
   const modelId = process.env.OPENROUTER_MODEL ?? defaultOpenRouterModel;
-  const cacheKey = `${apiKey}:${openRouterBaseUrl}:${modelId}`;
 
   const placeholders = ["your_openrouter_api_key"];
   if (!apiKey || placeholders.includes(apiKey)) {
     throw new Error(
       "OPENROUTER_API_KEY is not configured. Create an OpenRouter API key, add it to your Vercel environment variables (or .env.local for local dev), then redeploy."
     );
-  }
-
-  if (gabimaruAgent && cachedKey === cacheKey) {
-    return gabimaruAgent;
   }
 
   const openrouter = createOpenAICompatible({
@@ -74,20 +69,21 @@ export function getGabimaruAgent() {
     includeUsage: true
   });
 
-  gabimaruAgent = new ToolLoopAgent({
-    id: "gabimaru",
+  const prompt = getLastUserPrompt(messages);
+  const plan = createLocalPlan({ prompt, board: inferBoard(prompt), experience: "beginner" });
+  const simulation = runSimulation(plan);
+
+  const planContext = JSON.stringify({ plan, simulation }, null, 2);
+
+  return streamText({
     model: openrouter(modelId),
-    tools: hardwareTools,
-    stopWhen: stepCountIs(6),
-    temperature: 0.25,
-    instructions:
-      "You are Gabimaru, a precise electronics build agent. Help people build Arduino, Raspberry Pi, ESP32, Pico, sensor, motor, display, robotics, and IoT projects. When a user asks for a project, call createHardwareBuildPlan before answering. Explain where to connect wires, what the diagram means, what code to run, and how to validate it. Keep safety conservative: no mains voltage, no unsafe battery charging, no high-current motor wiring without a proper driver and separate supply. Be direct, practical, and friendly."
+    system:
+      "You are Gabimaru, a precise electronics build agent. You help people build Arduino, Raspberry Pi, ESP32, Pico, sensor, motor, display, robotics, and IoT projects. Keep safety conservative: no mains voltage, no unsafe battery charging, no high-current motor wiring without a proper driver and separate supply. Be direct, practical, and friendly. Format your response in markdown.",
+    messages: [
+      {
+        role: "user",
+        content: `User request: ${prompt}\n\nA hardware plan and simulation have already been generated for this project:\n\`\`\`json\n${planContext}\n\`\`\`\n\nUsing this plan, provide a clear explanation covering: what to buy, how to wire it up, the circuit diagram in Mermaid format, the firmware code, build steps, and safety checks. Explain what each part of the plan means in practical terms.`
+      }
+    ]
   });
-  cachedKey = cacheKey;
-
-  return gabimaruAgent;
-}
-
-export function getGabimaruModelLabel() {
-  return process.env.OPENROUTER_MODEL ?? defaultOpenRouterModel;
 }
