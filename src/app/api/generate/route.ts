@@ -120,52 +120,37 @@ const hardwarePlanSchema = {
   }
 } as const;
 
-function parseOutputText(response: unknown): string | null {
-  const candidate = response as {
-    output_text?: string;
-    output?: Array<{ content?: Array<{ type?: string; text?: string }> }>;
-  };
-
-  if (typeof candidate.output_text === "string") {
-    return candidate.output_text;
-  }
-
-  const text = candidate.output
-    ?.flatMap((item) => item.content ?? [])
-    .find((content) => content.type === "output_text" && typeof content.text === "string")?.text;
-
-  return text ?? null;
-}
-
-async function generateWithOpenAI(request: GenerateRequest): Promise<HardwarePlan> {
-  const apiKey = process.env.OPENAI_API_KEY;
+async function generateWithOpenRouter(request: GenerateRequest): Promise<HardwarePlan> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  const baseUrl = process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1";
+  const model = process.env.OPENROUTER_GENERATE_MODEL ?? "qwen/qwen3-next-80b-a3b-instruct:free";
 
   if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is not configured.");
+    throw new Error("OPENROUTER_API_KEY is not configured.");
   }
 
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_MODEL ?? "gpt-4.1",
-      input: [
+      model,
+      messages: [
         {
           role: "system",
           content:
-            "You are a careful electronics mentor. Create practical hardware project plans with safe wiring, beginner-friendly build steps, code, and a circuit layout. Avoid mains voltage. Prefer common parts. Return only JSON."
+            "You are a careful electronics mentor. Create practical hardware project plans with safe wiring, beginner-friendly build steps, code, and a circuit layout. Avoid mains voltage. Prefer common parts. Return only JSON matching the requested schema."
         },
         {
           role: "user",
           content: `Project request: ${request.prompt}\nPreferred board: ${request.board}\nBuilder experience: ${request.experience}\nUse x and y coordinates from 5 to 95 for each circuit node.`
         }
       ],
-      text: {
-        format: {
-          type: "json_schema",
+      response_format: {
+        type: "json_schema",
+        json_schema: {
           name: "hardware_project_plan",
           strict: true,
           schema: hardwarePlanSchema
@@ -175,14 +160,16 @@ async function generateWithOpenAI(request: GenerateRequest): Promise<HardwarePla
   });
 
   if (!response.ok) {
-    throw new Error(`OpenAI request failed with ${response.status}.`);
+    throw new Error(`OpenRouter request failed with ${response.status}.`);
   }
 
-  const payload = (await response.json()) as unknown;
-  const outputText = parseOutputText(payload);
+  const payload = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const outputText = payload.choices?.[0]?.message?.content ?? null;
 
   if (!outputText) {
-    throw new Error("OpenAI response did not include output text.");
+    throw new Error("OpenRouter response did not include output text.");
   }
 
   return JSON.parse(outputText) as HardwarePlan;
@@ -197,7 +184,7 @@ export async function POST(request: Request) {
   };
 
   try {
-    const plan = await generateWithOpenAI(payload);
+    const plan = await generateWithOpenRouter(payload);
     return NextResponse.json<GenerateResponse>({ plan, source: "openai" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown generation error.";

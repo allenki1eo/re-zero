@@ -4,8 +4,8 @@ import { z } from "zod";
 import { createLocalPlan } from "@/lib/sample-plan";
 import { runSimulation } from "@/lib/simulation";
 
-const groqBaseUrl = process.env.GROQ_BASE_URL ?? "https://api.groq.com/openai/v1";
-const defaultGroqModel = "openai/gpt-oss-20b";
+const openRouterBaseUrl = process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1";
+const defaultOpenRouterModel = "qwen/qwen3-coder:free";
 
 const hardwareTools = {
   createHardwareBuildPlan: tool({
@@ -42,24 +42,24 @@ const hardwareTools = {
 let gabimaruAgent: ToolLoopAgent<never, typeof hardwareTools> | null = null;
 let cachedKey = "";
 
-function getGroqApiKey() {
-  return (process.env.GROQ_API_KEY ?? "").trim();
+function getOpenRouterApiKey() {
+  return (process.env.OPENROUTER_API_KEY ?? "").trim();
 }
 
 export function getGabimaruMode() {
   const mode = process.env.GABIMARU_AI_MODE?.trim().toLowerCase();
-  return mode === "groq" ? "groq" : "local";
+  return mode === "openrouter" ? "openrouter" : "local";
 }
 
 export function getGabimaruAgent() {
-  const apiKey = getGroqApiKey();
-  const modelId = process.env.GROQ_MODEL ?? defaultGroqModel;
-  const cacheKey = `${apiKey}:${groqBaseUrl}:${modelId}`;
+  const apiKey = getOpenRouterApiKey();
+  const modelId = process.env.OPENROUTER_MODEL ?? defaultOpenRouterModel;
+  const cacheKey = `${apiKey}:${openRouterBaseUrl}:${modelId}`;
 
-  const placeholders = ["your_groq_api_key"];
+  const placeholders = ["your_openrouter_api_key"];
   if (!apiKey || placeholders.includes(apiKey)) {
     throw new Error(
-      "GROQ_API_KEY is not configured. Create a Groq API key, add it to your Vercel environment variables (or .env.local for local dev), then redeploy."
+      "OPENROUTER_API_KEY is not configured. Create an OpenRouter API key, add it to your Vercel environment variables (or .env.local for local dev), then redeploy."
     );
   }
 
@@ -67,16 +67,16 @@ export function getGabimaruAgent() {
     return gabimaruAgent;
   }
 
-  const groq = createOpenAICompatible({
-    name: "groq",
-    baseURL: groqBaseUrl,
+  const openrouter = createOpenAICompatible({
+    name: "openrouter",
+    baseURL: openRouterBaseUrl,
     apiKey,
     includeUsage: true
   });
 
   gabimaruAgent = new ToolLoopAgent({
     id: "gabimaru",
-    model: groq(modelId),
+    model: openrouter(modelId),
     tools: hardwareTools,
     stopWhen: stepCountIs(6),
     temperature: 0.25,
@@ -89,5 +89,5 @@ export function getGabimaruAgent() {
 }
 
 export function getGabimaruModelLabel() {
-  return process.env.GROQ_MODEL ?? defaultGroqModel;
+  return process.env.OPENROUTER_MODEL ?? defaultOpenRouterModel;
 }

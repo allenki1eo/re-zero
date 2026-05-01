@@ -76,7 +76,7 @@ function createLocalAnswer(prompt: string) {
     .map((check) => `- ${check.passed ? "PASS" : "CHECK"}: ${check.label}`)
     .join("\n");
 
-  return `I'm running in free local mode, so this answer does not spend hosted AI credits. Groq hosted models are available if you set \`GABIMARU_AI_MODE=groq\` and add \`GROQ_API_KEY\`.
+  return `I'm running in free local mode, so this answer does not spend hosted AI credits. OpenRouter hosted models are available if you set \`GABIMARU_AI_MODE=openrouter\` and add \`OPENROUTER_API_KEY\`.
 
 ## ${plan.title}
 
